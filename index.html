@@ -54,19 +54,22 @@
     function bond(a, b) {
       let geo = new THREE.CylinderGeometry(0.1, 0.1, 1, 16);
       let mesh = new THREE.Mesh(geo, MAT.bond);
-      updateBond(mesh, a.position, b.position);
+      mesh.userData = { a1: a, a2: b };
+      updateBond(mesh);
       scene.add(mesh);
       return mesh;
     }
 
-    function updateBond(mesh, p1, p2) {
+    function updateBond(mesh) {
+      let p1 = mesh.userData.a1.position;
+      let p2 = mesh.userData.a2.position;
       let v = new THREE.Vector3().subVectors(p2, p1);
       mesh.scale.set(1, v.length(), 1);
       mesh.position.copy(p1).addScaledVector(v, 0.5);
       mesh.lookAt(p2);
     }
 
-    // Atoms
+    // Atoms & Bonds
     let atoms = [];
     let bonds = [];
 
@@ -113,7 +116,6 @@
         new TWEEN.Tween(t.atom.position)
           .to({ x: t.pos.x, y: t.pos.y, z: t.pos.z }, 2000)
           .easing(TWEEN.Easing.Quadratic.InOut)
-          .onUpdate(() => {})
           .start();
       });
 
@@ -129,10 +131,7 @@
     function animate() {
       requestAnimationFrame(animate);
       TWEEN.update();
-      bonds.forEach(b => {
-        let [a1, a2] = atoms;
-        if (a1 && a2) updateBond(b, b.userData?.a1?.position || new THREE.Vector3(), b.userData?.a2?.position || new THREE.Vector3());
-      });
+      bonds.forEach(b => updateBond(b));
       renderer.render(scene, camera);
     }
 
