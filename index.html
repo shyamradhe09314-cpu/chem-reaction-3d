@@ -1,11 +1,77 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Chem Reaction 3D</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chemical Reaction 3D</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #000; }
+    h1 {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+  </style>
 </head>
 <body>
-  <h1>Hello! Chem Reaction 3D Project</h1>
-  <p>यह आपकी पहली वेब पेज फाइल है।</p>
+  <h1>H₂ + O₂ → H₂O (Reaction Demo)</h1>
+
+  <!-- Three.js library -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+
+  <script>
+    // Scene setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Lights
+    const light = new THREE.PointLight(0xffffff, 1);
+    light.position.set(5,5,5);
+    scene.add(light);
+
+    // Function to make an atom
+    function makeAtom(color, x, y, z) {
+      const geometry = new THREE.SphereGeometry(0.3, 32, 32);
+      const material = new THREE.MeshPhongMaterial({ color });
+      const sphere = new THREE.Mesh(geometry, material);
+      sphere.position.set(x,y,z);
+      scene.add(sphere);
+      return sphere;
+    }
+
+    // Hydrogen atoms (white)
+    const H1 = makeAtom(0xffffff, -1, 0, 0);
+    const H2 = makeAtom(0xffffff, -1.8, 0, 0);
+
+    // Oxygen atoms (red)
+    const O1 = makeAtom(0xff0000, 1, 0, 0);
+    const O2 = makeAtom(0xff0000, 1.8, 0, 0);
+
+    camera.position.z = 5;
+
+    // Animation loop
+    let t = 0;
+    function animate() {
+      requestAnimationFrame(animate);
+      t += 0.01;
+
+      // Move atoms together to form H2O
+      if (t < 3) {
+        H1.position.x += 0.005;
+        H2.position.x += 0.005;
+        O1.position.x -= 0.005;
+        O2.position.x -= 0.005;
+      }
+
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
 </body>
 </html>
