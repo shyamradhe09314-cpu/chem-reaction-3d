@@ -2,38 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>3D Chemical Reaction (H2 + O2 → H2O)</title>
+  <title>Chemical Reaction H2 + O2 → H2O</title>
   <style>
-    body { margin: 0; background: black; color: white; font-family: Arial; }
+    body { margin: 0; background: black; color: white; overflow: hidden; }
     #info { position: absolute; top: 20px; left: 20px; font-size: 24px; }
     canvas { display: block; }
   </style>
 </head>
 <body>
-  <div id="info">H₂ + O₂ → H₂O (3D Reaction)</div>
+  <div id="info">H₂ + O₂ → H₂O (Reaction Demo)</div>
 
-  <!-- Three.js -->
+  <!-- Three.js Library -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
 
   <script>
     // Scene, Camera, Renderer
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // Lights
+    // Light
     const light = new THREE.PointLight(0xffffff, 1.2);
     light.position.set(10, 10, 10);
     scene.add(light);
 
-    // Atom materials
-    const whiteMat = new THREE.MeshPhongMaterial({ color: 0xffffff }); // H
-    const redMat = new THREE.MeshPhongMaterial({ color: 0xff0000 });   // O
+    // Materials
+    const whiteMat = new THREE.MeshPhongMaterial({ color: 0xffffff }); // Hydrogen
+    const redMat   = new THREE.MeshPhongMaterial({ color: 0xff0000 }); // Oxygen
 
-    // Function to create atom
+    // Atom function
     function atom(radius, material, x, y, z) {
       const sphere = new THREE.Mesh(new THREE.SphereGeometry(radius, 32, 32), material);
       sphere.position.set(x, y, z);
@@ -41,15 +41,15 @@
       return sphere;
     }
 
-    // Function to create bond (cylinder)
+    // Bond function (cylinder)
     function bond(x1, y1, z1, x2, y2, z2) {
-      const dir = new THREE.Vector3(x2-x1, y2-y1, z2-z1);
+      const dir = new THREE.Vector3(x2 - x1, y2 - y1, z2 - z1);
       const length = dir.length();
-      const mid = new THREE.Vector3((x1+x2)/2, (y1+y2)/2, (z1+z2)/2);
-      const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, length, 16), new THREE.MeshPhongMaterial({color:0xaaaaaa}));
+      const mid = new THREE.Vector3((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2);
+      const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, length, 16), new THREE.MeshPhongMaterial({ color: 0xaaaaaa }));
       cyl.position.copy(mid);
-      cyl.lookAt(x2,y2,z2);
-      cyl.rotateX(Math.PI/2);
+      cyl.lookAt(x2, y2, z2);
+      cyl.rotateX(Math.PI / 2);
       scene.add(cyl);
       return cyl;
     }
@@ -57,54 +57,47 @@
     // Reactants (H2 + O2)
     let H1 = atom(0.3, whiteMat, -2, 0.5, 0);
     let H2 = atom(0.3, whiteMat, -1, 0.5, 0);
-    let B1 = bond(-2,0.5,0,-1,0.5,0);
+    let B1 = bond(-2, 0.5, 0, -1, 0.5, 0);
 
     let O1 = atom(0.5, redMat, 1, -0.5, 0);
     let O2 = atom(0.5, redMat, 2, -0.5, 0);
-    let B2 = bond(1,-0.5,0,2,-0.5,0);
+    let B2 = bond(1, -0.5, 0, 2, -0.5, 0);
 
-    // Camera position
+    // Products (H2O)
+    let H2O_H1, H2O_H2, H2O_O, H2O_B1, H2O_B2;
+    let step = 0;
+
+    function showProducts() {
+      // Remove reactants
+      scene.remove(H1, H2, O1, O2, B1, B2);
+
+      // Add H2O molecule
+      H2O_O  = atom(0.5, redMat, 0, 0, 0);
+      H2O_H1 = atom(0.3, whiteMat, -1, 0.5, 0);
+      H2O_H2 = atom(0.3, whiteMat,  1, 0.5, 0);
+
+      H2O_B1 = bond(0, 0, 0, -1, 0.5, 0);
+      H2O_B2 = bond(0, 0, 0,  1, 0.5, 0);
+    }
+
+    // Camera
     camera.position.z = 6;
 
     // Controls
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-    // Animate Reaction
-    let step = 0;
+    // Animate
     function animate() {
       requestAnimationFrame(animate);
-
-      step += 0.01;
-
-      if(step > 3 && step < 6){ // move atoms to react
-        H1.position.x += 0.01;
-        H2.position.x += 0.01;
-        O1.position.x -= 0.01;
-        O2.position.x -= 0.01;
-      }
-
-      if(step >= 6){ // show water molecules
-        scene.clear();
-
-        let O = atom(0.5, redMat, 0,0,0);
-        let H3 = atom(0.3, whiteMat, 1,0,0);
-        let H4 = atom(0.3, whiteMat, -0.5,0.8,0);
-
-        bond(0,0,0,1,0,0);
-        bond(0,0,0,-0.5,0.8,0);
-      }
-
-      controls.update();
       renderer.render(scene, camera);
+
+      // Switch after 3 sec
+      if(step === 0 && performance.now() > 3000){
+        step = 1;
+        showProducts();
+      }
     }
     animate();
-
-    // Resize
-    window.addEventListener('resize', ()=>{
-      camera.aspect = window.innerWidth/window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
   </script>
 </body>
 </html>
