@@ -1,49 +1,261 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Atom Test</title>
+  <meta charset="utf-8" />
+  <title>2 H₂ + O₂ → 2 H₂O (3D Reaction Demo)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body { margin: 0; overflow: hidden; background: black; }
+    :root { color-scheme: dark; }
+    html,body { margin:0; height:100%; background:#000; overflow:hidden; }
+    canvas { display:block; }
+    #eq { position:fixed; left:10px; top:6px; color:#fff; font-family: Georgia, 'Times New Roman', serif; font-weight:700; font-size:18px; letter-spacing:.5px; text-shadow:0 2px 6px #000; }
+    #ui { position:fixed; right:10px; top:8px; display:flex; gap:8px; z-index:2; }
+    button { background:#161616; color:#fff; border:1px solid #333; border-radius:10px; padding:.55rem .8rem; font-size:12px; }
+    button:active { transform: scale(.98); }
+    .badge { position:fixed; right:10px; bottom:10px; font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color:#aaa; opacity:.7 }
   </style>
 </head>
 <body>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
+  <div id="eq">2 H<sub>2</sub> + O<sub>2</sub> → 2 H<sub>2</sub>O</div>
+  <div id="ui"><button id="restart">Restart</button></div>
+  <div class="badge">Drag = orbit • Pinch/scroll = zoom</div>
+
+  <!-- Three.js + OrbitControls (global THREE build) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
+
   <script>
-    let scene = new THREE.Scene();
-    let camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-    camera.position.set(0,0,5);
+  // ---------- basic scene ----------
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 1000);
+  camera.position.set(0, 1.2, 8);
 
-    let renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer:true });
+  renderer.setPixelRatio(devicePixelRatio);
+  renderer.setSize(innerWidth, innerHeight);
+  document.body.appendChild(renderer.domElement);
 
-    let controls = new THREE.OrbitControls(camera, renderer.domElement);
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
 
-    // Lights
-    scene.add(new THREE.AmbientLight(0x888888));
-    let light = new THREE.PointLight(0xffffff, 1);
-    light.position.set(5,5,5);
-    scene.add(light);
+  // lights
+  scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+  const k1 = new THREE.PointLight(0xffffff, 1.1); k1.position.set(4, 3, 4); scene.add(k1);
+  const k2 = new THREE.PointLight(0xffffff, 0.7); k2.position.set(-4, -2, 7); scene.add(k2);
 
-    // Oxygen atom (red)
-    let O = new THREE.Mesh(new THREE.SphereGeometry(0.7, 32, 32), new THREE.MeshPhongMaterial({color: 0xff0000}));
-    O.position.set(-1,0,0);
-    scene.add(O);
+  // ---------- materials ----------
+  const MAT = {
+    H: new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 60 }),
+    O: new THREE.MeshPhongMaterial({ color: 0xff2222, shininess: 60 }),
+    bond: new THREE.MeshPhongMaterial({ color: 0x9a9a9a, shininess: 30, transparent:true, opacity:1 })
+  };
 
-    // Hydrogen atom (white)
-    let H = new THREE.Mesh(new THREE.SphereGeometry(0.4, 32, 32), new THREE.MeshPhongMaterial({color: 0xffffff}));
-    H.position.set(1,0,0);
-    scene.add(H);
+  // ---------- helpers ----------
+  function makeAtom(element, pos=[0,0,0]) {
+    // scale radii to look nice (not real sizes)
+    const r = (element === 'H') ? 0.32 : 0.45;
+    const geo = new THREE.SphereGeometry(r, 28, 18);
+    const mesh = new THREE.Mesh(geo, MAT[element]);
+    mesh.position.set(...pos);
+    mesh.userData.element = element;
 
-    function animate(){
-      requestAnimationFrame(animate);
-      O.rotation.y += 0.01;
-      H.rotation.y += 0.01;
-      renderer.render(scene,camera);
+    // label sprite
+    const label = makeLabel(element);
+    label.position.set(0, r + 0.18, 0);
+    mesh.add(label);
+
+    scene.add(mesh);
+    return mesh;
+  }
+
+  function makeLabel(text) {
+    const size = 128, pad = 12;
+    const c = document.createElement('canvas'); c.width = c.height = size;
+    const g = c.getContext('2d');
+    g.fillStyle = 'rgba(0,0,0,0)'; g.fillRect(0,0,size,size);
+    g.fillStyle = '#ffffff';
+    g.font = 'bold 72px Arial';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.strokeStyle = 'rgba(0,0,0,.35)';
+    g.lineWidth = 8;
+    g.strokeText(text, size/2, size/2);
+    g.fillText(text, size/2, size/2);
+    const tex = new THREE.CanvasTexture(c);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent: true }));
+    spr.scale.set(.55,.55,1);
+    return spr;
+  }
+
+  // cylinder bond that can be updated
+  function makeBond(radius=0.08) {
+    const geo = new THREE.CylinderGeometry(radius, radius, 1, 18);
+    const m = new THREE.Mesh(geo, MAT.bond.clone());
+    scene.add(m); return m;
+  }
+  function setBond(mesh, a, b) {
+    const v1 = (a.isVector3)? a : a.position;
+    const v2 = (b.isVector3)? b : b.position;
+    const dir = new THREE.Vector3().subVectors(v2, v1);
+    const len = dir.length();
+    mesh.scale.set(1, len, 1);
+    // place at midpoint
+    const mid = new THREE.Vector3().addVectors(v1, v2).multiplyScalar(0.5);
+    mesh.position.copy(mid);
+    // orient
+    const up = new THREE.Vector3(0,1,0);
+    mesh.quaternion.setFromUnitVectors(up, dir.clone().normalize());
+  }
+
+  // ---------- atoms (reactants) ----------
+  // two H2 molecules
+  const H1a = makeAtom('H', [-4.0, 0, 0.0]);
+  const H1b = makeAtom('H', [-3.2, 0, 0.0]);
+  const H2a = makeAtom('H', [-4.0, -1.0, 0.0]);
+  const H2b = makeAtom('H', [-3.2, -1.0, 0.0]);
+  // one O2 molecule
+  const O1  = makeAtom('O', [ 4.0, -0.2, 0.0]);
+  const O2  = makeAtom('O', [ 4.9, -0.2, 0.0]);
+
+  // bonds (reactants)
+  const B_H1 = makeBond(0.07); setBond(B_H1, H1a, H1b);  // single
+  const B_H2 = makeBond(0.07); setBond(B_H2, H2a, H2b);  // single
+  const B_O1 = makeBond(0.10); setBond(B_O1, O1, O2);    // double (draw 2 cylinders)
+  const B_O2 = makeBond(0.10); setBond(B_O2, O1, O2);    // offset later to look double
+
+  // offset second O=O bond a little
+  B_O1.position.z += 0.06;
+  B_O2.position.z -= 0.06;
+
+  // ---------- animation plan ----------
+  /*
+    Phases (seconds):
+    0–2   idle reactants
+    2–5   approach
+    5–6   break old bonds (fade)
+    6–9   form two H2O (make V-shape, fade-in new bonds)
+  */
+  let t0 = performance.now();
+
+  // target positions for 2 H2O
+  // water geometry (approx): angle 104.5°, OH ~ 1.0 units
+  function waterPositions(centerX = -1.4, centerY = -0.2) {
+    const angle = 104.5 * Math.PI/180;
+    const d = 1.1; // OH distance (scaled)
+    const oy = centerY;
+    const ox = centerX;
+    const h1 = new THREE.Vector3( ox + d*Math.sin(angle/2), oy,  d*Math.cos(angle/2));
+    const h2 = new THREE.Vector3( ox - d*Math.sin(angle/2), oy, -d*Math.cos(angle/2));
+    const o  = new THREE.Vector3( ox, oy, 0 );
+    return {h1,h2,o};
+  }
+  const W1 = waterPositions(-1.6, -0.3); // left water
+  const W2 = waterPositions(+1.6, -0.3); // right water
+
+  // new bonds for waters
+  const WB = {
+    w1_h1: makeBond(0.085),
+    w1_h2: makeBond(0.085),
+    w2_h1: makeBond(0.085),
+    w2_h2: makeBond(0.085)
+  };
+  // start them invisible
+  for (const k in WB) WB[k].material.opacity = 0;
+
+  function lerpVec3(mesh, to, alpha) {
+    mesh.position.lerp(to, alpha);
+  }
+
+  function reset() {
+    t0 = performance.now();
+
+    // reset atom positions
+    H1a.position.set(-4.0,  0.0, 0);
+    H1b.position.set(-3.2,  0.0, 0);
+    H2a.position.set(-4.0, -1.0, 0);
+    H2b.position.set(-3.2, -1.0, 0);
+    O1.position.set( 4.0, -0.2, 0);
+    O2.position.set( 4.9, -0.2, 0);
+
+    // reset bond opacity/placement
+    MAT.bond.opacity = 1;
+    B_O1.material.opacity = B_O2.material.opacity = 1;
+    B_H1.material.opacity = B_H2.material.opacity = 1;
+    setBond(B_H1, H1a, H1b);
+    setBond(B_H2, H2a, H2b);
+    setBond(B_O1, O1, O2); B_O1.position.z =  0.06;
+    setBond(B_O2, O1, O2); B_O2.position.z = -0.06;
+
+    for (const k in WB) WB[k].material.opacity = 0;
+  }
+  reset();
+
+  // ---------- render loop ----------
+  function frame() {
+    requestAnimationFrame(frame);
+    const t = (performance.now() - t0) / 1000;
+
+    // phase 1: 2–5 approach
+    if (t > 2 && t <= 5) {
+      const a = Math.min(1, (t-2) / 3);
+      // move hydrogens rightwards, oxygens leftwards
+      H1a.position.lerp(new THREE.Vector3(-1.5, -0.2,  0.5), a*0.02);
+      H1b.position.lerp(new THREE.Vector3(-1.0, -0.2,  0.3), a*0.02);
+      H2a.position.lerp(new THREE.Vector3(-1.8, -0.6, -0.4), a*0.02);
+      H2b.position.lerp(new THREE.Vector3(-1.2, -0.6, -0.6), a*0.02);
+      O1.position.lerp( new THREE.Vector3( 0.6, -0.2, 0.1), a*0.02);
+      O2.position.lerp( new THREE.Vector3( 1.2, -0.2, 0.0), a*0.02);
+      setBond(B_H1, H1a, H1b);
+      setBond(B_H2, H2a, H2b);
+      setBond(B_O1, O1, O2); B_O1.position.z =  0.06;
+      setBond(B_O2, O1, O2); B_O2.position.z = -0.06;
     }
-    animate();
+
+    // phase 2: 5–6 break old bonds
+    if (t > 5 && t <= 6) {
+      const a = (t-5)/1;
+      B_H1.material.opacity = 1 - a;
+      B_H2.material.opacity = 1 - a;
+      B_O1.material.opacity = 1 - a;
+      B_O2.material.opacity = 1 - a;
+    }
+
+    // phase 3: 6–9 make two waters
+    if (t > 6) {
+      const a = Math.min(1, (t-6)/3);
+
+      // move atoms to water positions
+      lerpVec3(H1a, W1.h1, a*0.08);
+      lerpVec3(H2a, W1.h2, a*0.08);
+      lerpVec3(O1,  W1.o,  a*0.08);
+
+      lerpVec3(H1b, W2.h1, a*0.08);
+      lerpVec3(H2b, W2.h2, a*0.08);
+      lerpVec3(O2,  W2.o,  a*0.08);
+
+      // fade-in new bonds and place them
+      const op = Math.min(1, a*1.2);
+      for (const k in WB) WB[k].material.opacity = op;
+      setBond(WB.w1_h1, O1, H1a);
+      setBond(WB.w1_h2, O1, H2a);
+      setBond(WB.w2_h1, O2, H1b);
+      setBond(WB.w2_h2, O2, H2b);
+    }
+
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  frame();
+
+  // UI
+  document.getElementById('restart').addEventListener('click', reset);
+
+  // resize
+  addEventListener('resize', () => {
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
   </script>
 </body>
 </html>
