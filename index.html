@@ -11,98 +11,91 @@
 </head>
 <body>
   <div id="info">H₂ + O₂ → H₂O (Reaction Demo)</div>
+
+  <!-- Three.js -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+  <!-- GSAP -->
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 
   <script>
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer();
+    const renderer = new THREE.WebGLRenderer({antialias:true});
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const light = new THREE.PointLight(0xffffff, 1);
-    light.position.set(5, 5, 5);
+    const light = new THREE.AmbientLight(0xffffff, 1.2);
     scene.add(light);
 
-    // Helper function: Atom sphere
+    // Atom function
     function createAtom(color, x, y, z) {
       const geometry = new THREE.SphereGeometry(0.4, 32, 32);
       const material = new THREE.MeshPhongMaterial({ color: color });
-      const sphere = new THREE.Mesh(geometry, material);
-      sphere.position.set(x, y, z);
-      scene.add(sphere);
-      return sphere;
+      const atom = new THREE.Mesh(geometry, material);
+      atom.position.set(x, y, z);
+      scene.add(atom);
+      return atom;
     }
 
-    // Helper function: Bond (Cylinder)
+    // Bond (stick) function
     function createBond(atom1, atom2) {
-      const material = new THREE.MeshPhongMaterial({ color: 0xaaaaaa });
-      const geometry = new THREE.CylinderGeometry(0.1, 0.1, 1, 16);
-      const bond = new THREE.Mesh(geometry, material);
+      const start = atom1.position.clone();
+      const end = atom2.position.clone();
+      const distance = start.distanceTo(end);
+
+      const bondGeometry = new THREE.CylinderGeometry(0.1, 0.1, distance, 16);
+      const bondMaterial = new THREE.MeshPhongMaterial({ color: 0xaaaaaa });
+      const bond = new THREE.Mesh(bondGeometry, bondMaterial);
+
+      // Position bond in middle of two atoms
+      bond.position.copy(start).add(end).divideScalar(2);
+
+      // Align bond with atoms
+      bond.lookAt(end);
+      bond.rotateX(Math.PI / 2);
+
       scene.add(bond);
-      bond.atom1 = atom1;
-      bond.atom2 = atom2;
       return bond;
     }
 
-    // Create H2 + O2 molecules
+    // Atoms (initial molecules: H2 and O2)
     const H1 = createAtom(0xffffff, -3, 0, 0);
     const H2 = createAtom(0xffffff, -2, 0, 0);
     const O1 = createAtom(0xff0000, 2, 0, 0);
     const O2 = createAtom(0xff0000, 3, 0, 0);
 
-    const bondH = createBond(H1, H2);
-    const bondO = createBond(O1, O2);
+    // Bonds (initially H–H and O=O)
+    let bond_H2 = createBond(H1, H2);
+    let bond_O2 = createBond(O1, O2);
 
-    camera.position.z = 8;
+    camera.position.z = 7;
 
-    // Update bond positions
-    function updateBond(bond) {
-      const pos1 = bond.atom1.position;
-      const pos2 = bond.atom2.position;
-      const mid = new THREE.Vector3().addVectors(pos1, pos2).multiplyScalar(0.5);
-      bond.position.copy(mid);
-
-      bond.scale.set(1, pos1.distanceTo(pos2), 1);
-      bond.lookAt(pos2);
-      bond.rotateX(Math.PI / 2);
-    }
-
+    // Animate loop
     function animate() {
       requestAnimationFrame(animate);
-      updateBond(bondH);
-      updateBond(bondO);
       renderer.render(scene, camera);
     }
     animate();
 
-    // Reaction animation after 3 sec
+    // Reaction after 3s
     setTimeout(() => {
-      // Move hydrogens near oxygen to form H2O
-      gsap.to(H1.position, { x: 2, y: 0.8, duration: 2 });
-      gsap.to(H2.position, { x: 2, y: -0.8, duration: 2 });
+      // Remove old bonds
+      scene.remove(bond_H2);
+      scene.remove(bond_O2);
+
+      // Move atoms to form H2O
+      gsap.to(H1.position, { x: 2, y: 1, duration: 2 });
+      gsap.to(H2.position, { x: 2, y: -1, duration: 2 });
       gsap.to(O1.position, { x: 2, y: 0, duration: 2 });
-      gsap.to(O2.position, { x: 100, duration: 2 }); // move away (extra O)
 
-      // Remove old bonds after reaction
+      // Hide O2 extra atom
+      gsap.to(O2.position, { x: 100, duration: 2 });
+
+      // After movement, create new H–O bonds
       setTimeout(() => {
-        scene.remove(bondH);
-        scene.remove(bondO);
-
-        // New H2O bonds
-        const bond1 = createBond(O1, H1);
-        const bond2 = createBond(O1, H2);
-
-        function animateReaction() {
-          requestAnimationFrame(animateReaction);
-          updateBond(bond1);
-          updateBond(bond2);
-          renderer.render(scene, camera);
-        }
-        animateReaction();
-
-      }, 2500);
+        bond_HO1 = createBond(H1, O1);
+        bond_HO2 = createBond(H2, O1);
+      }, 2200);
     }, 3000);
   </script>
 </body>
