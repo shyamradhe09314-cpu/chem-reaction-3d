@@ -3,144 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>2 H₂ + O₂ → 2 H₂O (3D Reaction)</title>
+  <title>2 H₂ + O₂ → 2 H₂O</title>
   <style>
     body { margin: 0; overflow: hidden; background: black; }
-    #eq { position: fixed; top: 10px; left: 10px; color: white; font-size: 18px; font-weight: bold; }
-    button { position: fixed; top: 10px; right: 10px; padding: 8px 12px; font-size: 14px; }
+    #eq { position: fixed; top: 10px; left: 10px; color: white; font-size: 20px; font-weight: bold; }
+    button { position: fixed; top: 10px; right: 10px; padding: 8px 12px; }
   </style>
 </head>
 <body>
   <div id="eq">2 H₂ + O₂ → 2 H₂O</div>
   <button onclick="restart()">Restart</button>
+
   <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/20.0.0/tween.umd.js"></script>
-  
-  <script>
-    let scene = new THREE.Scene();
-    let camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-    camera.position.z = 8;
-
-    let renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
-
-    let controls = new THREE.OrbitControls(camera, renderer.domElement);
-
-    // Lights
-    let light = new THREE.PointLight(0xffffff, 1.2);
-    light.position.set(5, 5, 5);
-    scene.add(light);
-    scene.add(new THREE.AmbientLight(0x444444));
-
-    // Materials
-    const MAT = {
-      H: new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 100 }),
-      O: new THREE.MeshPhongMaterial({ color: 0xff0000, shininess: 100 }),
-      bond: new THREE.MeshPhongMaterial({ color: 0xaaaaaa })
-    };
-
-    // Helpers
-    function atom(type, x, y, z) {
-      let geo = new THREE.SphereGeometry(0.4, 32, 32);
-      let mesh = new THREE.Mesh(geo, MAT[type]);
-      mesh.position.set(x, y, z);
-      mesh.userData.type = type;
-      scene.add(mesh);
-      return mesh;
-    }
-
-    function bond(a, b) {
-      let geo = new THREE.CylinderGeometry(0.1, 0.1, 1, 16);
-      let mesh = new THREE.Mesh(geo, MAT.bond);
-      mesh.userData = { a1: a, a2: b };
-      updateBond(mesh);
-      scene.add(mesh);
-      return mesh;
-    }
-
-    function updateBond(mesh) {
-      let p1 = mesh.userData.a1.position;
-      let p2 = mesh.userData.a2.position;
-      let v = new THREE.Vector3().subVectors(p2, p1);
-      mesh.scale.set(1, v.length(), 1);
-      mesh.position.copy(p1).addScaledVector(v, 0.5);
-      mesh.lookAt(p2);
-    }
-
-    // Atoms & Bonds
-    let atoms = [];
-    let bonds = [];
-
-    function setupReaction() {
-      // Clear old
-      atoms.forEach(a => scene.remove(a));
-      bonds.forEach(b => scene.remove(b));
-      atoms = []; bonds = [];
-
-      // Reactants: 2 H₂ + O₂
-      let H1a = atom("H", -4, 1, 0);
-      let H1b = atom("H", -3, 1, 0);
-      let H2a = atom("H", -4, -1, 0);
-      let H2b = atom("H", -3, -1, 0);
-      let O1 = atom("O", 3, 0.5, 0);
-      let O2 = atom("O", 4.2, -0.5, 0);
-
-      atoms.push(H1a, H1b, H2a, H2b, O1, O2);
-
-      bonds.push(bond(H1a, H1b));
-      bonds.push(bond(H2a, H2b));
-      bonds.push(bond(O1, O2));
-
-      // Animate to products
-      setTimeout(() => animateReaction(H1a, H1b, H2a, H2b, O1, O2), 2000);
-    }
-
-    function animateReaction(H1a, H1b, H2a, H2b, O1, O2) {
-      // Break old bonds
-      bonds.forEach(b => scene.remove(b));
-      bonds = [];
-
-      // Target positions for H2O (2 molecules in V-shape)
-      let targets = [
-        { atom: O1, pos: new THREE.Vector3(-1, 0, 0) },
-        { atom: H1a, pos: new THREE.Vector3(-1.8, 0.6, 0) },
-        { atom: H1b, pos: new THREE.Vector3(-1.6, -0.6, 0) },
-        { atom: O2, pos: new THREE.Vector3(2, 0, 0) },
-        { atom: H2a, pos: new THREE.Vector3(2.8, 0.6, 0) },
-        { atom: H2b, pos: new THREE.Vector3(2.6, -0.6, 0) },
-      ];
-
-      targets.forEach(t => {
-        new TWEEN.Tween(t.atom.position)
-          .to({ x: t.pos.x, y: t.pos.y, z: t.pos.z }, 2000)
-          .easing(TWEEN.Easing.Quadratic.InOut)
-          .start();
-      });
-
-      // Add new bonds after movement
-      setTimeout(() => {
-        bonds.push(bond(O1, H1a));
-        bonds.push(bond(O1, H1b));
-        bonds.push(bond(O2, H2a));
-        bonds.push(bond(O2, H2b));
-      }, 2100);
-    }
-
-    function animate() {
-      requestAnimationFrame(animate);
-      TWEEN.update();
-      bonds.forEach(b => updateBond(b));
-      renderer.render(scene, camera);
-    }
-
-    function restart() {
-      setupReaction();
-    }
-
-    setupReaction();
-    animate();
-  </script>
-</body>
-</html>
+  <script src="
