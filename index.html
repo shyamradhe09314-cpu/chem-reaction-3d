@@ -1,131 +1,263 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="hi">
 <head>
-  <meta charset="UTF-8">
-  <title>2H₂ + O₂ → 2H₂O</title>
-  <style>
-    body { margin: 0; background: black; overflow: hidden; }
-    #info {
-      position: absolute; top: 10px; left: 10px; 
-      color: white; font-family: Arial; font-size: 18px;
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>2 H₂ + O₂ → 2 H₂O (3D Reaction)</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto;}
+  #eq {position:fixed;left:10px;top:8px;color:#fff;font-weight:700;
+       font-size:18px;letter-spacing:.5px; text-shadow:0 2px 6px #000;}
+  #ui {position:fixed;right:10px;top:8px;display:flex;gap:8px;z-index:2}
+  button{background:#161616;color:#fff;border:1px solid #333;border-radius:10px;
+         padding:8px 10px;font-size:12px}
+  button:active{transform:scale(.98)}
+  canvas{display:block}
+</style>
 </head>
 <body>
-  <div id="info">2 H₂ + O₂ → 2 H₂O (Reaction Demo)</div>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
-  <script>
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+<div id="eq">2 H₂  +  O₂  →  2 H₂O (3D Reaction Demo)</div>
+<div id="ui">
+  <button id="restart">↺ Restart</button>
+  <button id="rec">● Record</button>
+</div>
 
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+<!-- three.js + OrbitControls (non-module build for simplicity) -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
 
-    // Materials
-    const matH = new THREE.MeshPhongMaterial({ color: 0xffffff }); // Hydrogen white
-    const matO = new THREE.MeshPhongMaterial({ color: 0xff0000 }); // Oxygen red
-    const sphereGeo = new THREE.SphereGeometry(0.3, 32, 32);
+<script>
+// ====== Scene ======
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 100);
+camera.position.set(0, 1.2, 12);
+const renderer = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
 
-    // Molecule groups
-    let H2_1 = new THREE.Group();
-    let H2_2 = new THREE.Group();
-    let O2   = new THREE.Group();
-    let waters = []; // final H2O molecules
+// ====== Lights ======
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+const k1 = new THREE.DirectionalLight(0xffffff, 0.9); k1.position.set(2,3,4); scene.add(k1);
+const k2 = new THREE.PointLight(0xffffff, 0.7); k2.position.set(-4,-2,2); scene.add(k2);
 
-    // Add H2 molecule
-    function makeH2(x) {
-      const g = new THREE.Group();
-      const h1 = new THREE.Mesh(sphereGeo, matH);
-      const h2 = new THREE.Mesh(sphereGeo, matH);
-      h1.position.x = -0.4;
-      h2.position.x = 0.4;
-      g.add(h1); g.add(h2);
-      g.position.x = x;
-      scene.add(g);
-      return g;
-    }
+// ====== Materials (CPK-ish) ======
+const MAT = {
+  H: new THREE.MeshPhongMaterial({color:0xffffff, shininess:60}),
+  O: new THREE.MeshPhongMaterial({color:0xff2222, shininess:60}),
+  bond: new THREE.MeshPhongMaterial({color:0xaaaaaa})
+};
 
-    // Add O2 molecule
-    function makeO2(x) {
-      const g = new THREE.Group();
-      const o1 = new THREE.Mesh(sphereGeo, matO);
-      const o2 = new THREE.Mesh(sphereGeo, matO);
-      o1.position.x = -0.4;
-      o2.position.x = 0.4;
-      g.add(o1); g.add(o2);
-      g.position.x = x;
-      scene.add(g);
-      return g;
-    }
+// ====== Helpers ======
+function makeAtom(element, pos=[0,0,0]) {
+  const r = (element==='H') ? 0.35 : 0.55; // radii
+  const geo = new THREE.SphereGeometry(r, 28, 18);
+  const mesh = new THREE.Mesh(geo, MAT[element]);
+  mesh.position.set(...pos);
+  mesh.userData.element = element;
+  // label sprite
+  const label = makeLabel(element);
+  label.position.set(0, (r+0.18), 0);
+  mesh.add(label);
+  return mesh;
+}
 
-    // Water molecule (V-shape ~104.5°)
-    function makeH2O(x, z) {
-      const g = new THREE.Group();
-      const O = new THREE.Mesh(sphereGeo, matO);
-      const H1 = new THREE.Mesh(sphereGeo, matH);
-      const H2 = new THREE.Mesh(sphereGeo, matH);
+function makeLabel(text) {
+  const size = 128, pad = 10;
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d');
+  g.fillStyle = 'rgba(0,0,0,0.0)'; g.fillRect(0,0,size,size);
+  g.fillStyle = '#ffffff'; g.font = 'bold 72px Arial';
+  const w = g.measureText(text).width;
+  g.fillText(text, (size-w)/2, size-30);
+  const tex = new THREE.CanvasTexture(c); tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const mat = new THREE.SpriteMaterial({map:tex, depthTest:false});
+  const s = 0.9;
+  const spr = new THREE.Sprite(mat); spr.scale.set(s,s,1);
+  return spr;
+}
 
-      O.position.set(0,0,0);
-      const angle = (104.5 * Math.PI/180) / 2;
-      const dist = 0.8;
+function makeCylinderBond(a, b, thickness=0.12) {
+  const dir = new THREE.Vector3().subVectors(b, a);
+  const len = dir.length();
+  const geo = new THREE.CylinderGeometry(thickness, thickness, len, 16);
+  const cyl = new THREE.Mesh(geo, MAT.bond);
+  // orient
+  const mid = new THREE.Vector3().addVectors(a,b).multiplyScalar(0.5);
+  cyl.position.copy(mid);
+  cyl.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+  return cyl;
+}
 
-      H1.position.set(Math.sin(angle)*dist, Math.cos(angle)*dist, 0);
-      H2.position.set(-Math.sin(angle)*dist, Math.cos(angle)*dist, 0);
+// For double/triple bonds -> parallel cylinders
+function makeMultiBond(a, b, n=2, offset=0.15) {
+  const dir = new THREE.Vector3().subVectors(b,a).normalize();
+  const perp = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,1,0));
+  if (perp.length()<0.001) perp.set(1,0,0);
+  perp.normalize().multiplyScalar(offset);
+  const group = new THREE.Group();
+  const centers = (n===2) ? [perp.clone(), perp.clone().multiplyScalar(-1)]
+               : (n===3) ? [perp.clone(), new THREE.Vector3(), perp.clone().multiplyScalar(-1)]
+               : [new THREE.Vector3()];
+  centers.forEach(off=>{
+    const A = new THREE.Vector3().copy(a).add(off);
+    const B = new THREE.Vector3().copy(b).add(off);
+    group.add(makeCylinderBond(A,B,0.10));
+  });
+  return group;
+}
 
-      g.add(O); g.add(H1); g.add(H2);
-      g.position.set(x, 0, z);
-      scene.add(g);
-      return g;
-    }
+// ====== Molecule builders ======
+// H2 at given center
+function buildH2(centerX) {
+  const g = new THREE.Group(); g.userData.type='H2';
+  const a = makeAtom('H', [centerX-0.6, 0, 0]);
+  const b = makeAtom('H', [centerX+0.6, 0, 0]);
+  const bond = makeCylinderBond(a.position, b.position, 0.10); bond.userData.kind='single';
+  g.add(a,b,bond); return {group:g, atoms:[a,b], bonds:[bond]};
+}
 
-    // Lights
-    const light = new THREE.PointLight(0xffffff, 1);
-    light.position.set(10,10,10);
-    scene.add(light);
-    scene.add(new THREE.AmbientLight(0x404040));
+// O2 (double bond)
+function buildO2(centerX) {
+  const g = new THREE.Group(); g.userData.type='O2';
+  const a = makeAtom('O', [centerX-0.8, 0, 0]);
+  const b = makeAtom('O', [centerX+0.8, 0, 0]);
+  const bond = makeMultiBond(a.position, b.position, 2, 0.18); bond.userData.kind='double';
+  g.add(a,b,bond); return {group:g, atoms:[a,b], bonds:[bond]};
+}
 
-    // Initial molecules
-    H2_1 = makeH2(-4);
-    H2_2 = makeH2(-1.5);
-    O2   = makeO2(3);
+// One H2O with bent ~104.5°
+function buildH2O(centerX) {
+  const g = new THREE.Group(); g.userData.type='H2O';
+  const O = makeAtom('O', [centerX, 0, 0]);
+  const angle = 104.5 * Math.PI/180;
+  const r = 1.1;
+  const H1 = makeAtom('H', [centerX + r*Math.sin(angle/2),  r*Math.cos(angle/2), 0]);
+  const H2 = makeAtom('H', [centerX - r*Math.sin(angle/2),  r*Math.cos(angle/2), 0]);
+  const b1 = makeCylinderBond(O.position, H1.position, 0.10); b1.userData.kind='single';
+  const b2 = makeCylinderBond(O.position, H2.position, 0.10); b2.userData.kind='single';
+  g.add(O,H1,H2,b1,b2); return {group:g, atoms:[O,H1,H2], bonds:[b1,b2]};
+}
 
-    camera.position.z = 10;
+// ====== Build Reactants (2 H2 + 1 O2) ======
+let H2A, H2B, O2M, W1, W2;
+function buildReactantsLayout() {
+  H2A = buildH2(-6); scene.add(H2A.group);
+  H2B = buildH2(-3); scene.add(H2B.group);
+  O2M = buildO2(3);  scene.add(O2M.group);
+}
 
-    let step = 0;
-    function animate() {
-      requestAnimationFrame(animate);
-      controls.update();
+// ====== Reaction Animation ======
+let t=0, phase=0;
+/*
+  phase 0: show reactants (1.5s)
+  phase 1: approach + break bonds (1.2s)
+  phase 2: form two H2O and move to product positions (1.2s)
+  phase 3: settle as products
+*/
+function resetScene() {
+  // remove all children except lights
+  [...scene.children].filter(o=>o.isMesh||o.isGroup).forEach(o=>scene.remove(o));
+  buildReactantsLayout();
+  t=0; phase=0;
+}
+resetScene();
 
-      if(step < 200){
-        // Move molecules together
-        H2_1.position.x += 0.02;
-        H2_2.position.x += 0.02;
-        O2.position.x   -= 0.02;
-      }
-      else if(step === 200){
-        // Remove reactants
-        scene.remove(H2_1);
-        scene.remove(H2_2);
-        scene.remove(O2);
-
-        // Add 2 H2O molecules
-        waters.push(makeH2O(-1.5,0));
-        waters.push(makeH2O(1.5,0));
-      }
-      step++;
-
-      renderer.render(scene, camera);
-    }
-    animate();
-
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+function animateReaction(dt) {
+  t += dt;
+  if (phase===0 && t>1.5){ t=0; phase=1; }
+  if (phase===1){
+    // move H atoms towards center, fade old bonds
+    const groups = [H2A,H2B,O2M];
+    groups.forEach((m,i)=>{
+      m.atoms.forEach(a=>{
+        a.position.lerp(new THREE.Vector3(-1+ i, 0, 0), dt/0.9);
+      });
+      m.bonds.forEach(b=>{
+        b.material.opacity = Math.max(0, (b.material.opacity??1) - dt/0.9);
+        b.material.transparent = true;
+      });
     });
-  </script>
+    if (t>1.2){ // remove reactants; create products at center
+      [H2A.group,H2B.group,O2M.group].forEach(g=>scene.remove(g));
+      // Two waters will form spaced out
+      W1 = buildH2O(-2.2);  W2 = buildH2O( 2.2);
+      // start from disassembled atoms near center for a forming effect
+      W1.atoms.forEach(a=>a.position.multiplyScalar(0.2));
+      W2.atoms.forEach(a=>a.position.multiplyScalar(0.2));
+      W1.bonds.forEach(b=>b.scale.y = 0.01);
+      W2.bonds.forEach(b=>b.scale.y = 0.01);
+      scene.add(W1.group, W2.group);
+      t=0; phase=2;
+    }
+  } else if (phase===2){
+    // grow bonds and ease atoms to final positions saved in group children
+    const toFinal = (water, finalX) =>{
+      // target positions
+      const target = buildH2O(finalX);
+      // animate atoms
+      for (let i=0;i<water.atoms.length;i++){
+        const A = water.atoms[i];
+        const B = target.atoms[i];
+        A.position.lerp(B.position, dt/0.8);
+      }
+      // rebuild bonds (update orientation by removing/adding each frame is heavy; instead recreate at end)
+      water.group.remove(...water.bonds);
+      water.bonds = [];
+      const O = water.atoms[0], H1 = water.atoms[1], H2 = water.atoms[2];
+      const b1 = makeCylinderBond(O.position, H1.position, 0.10);
+      const b2 = makeCylinderBond(O.position, H2.position, 0.10);
+      b1.scale.y = b2.scale.y = THREE.MathUtils.clamp((t/0.8),0,1);
+      water.bonds.push(b1,b2); water.group.add(b1,b2);
+      // cleanup temp
+      target.group.traverse(n=>{ if(n.geometry) n.geometry.dispose(); if(n.material) n.material.dispose && n.material.dispose(); });
+    };
+    toFinal(W1, -3.5);
+    toFinal(W2,  3.5);
+    if (t>1.2){ phase=3; }
+  }
+}
+
+// ====== Resize ======
+addEventListener('resize', ()=>{
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ====== Record (WebM) ======
+let recBtn = document.getElementById('rec');
+let recorder, recordedChunks=[];
+recBtn.onclick = ()=>{
+  if(!recorder){
+    const stream = renderer.domElement.captureStream(30);
+    recorder = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp9'});
+    recorder.ondataavailable = e=>{ if(e.data.size>0) recordedChunks.push(e.data); };
+    recorder.onstop = ()=>{
+      const blob = new Blob(recordedChunks, {type:'video/webm'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'reaction.webm'; a.click();
+      URL.revokeObjectURL(url); recordedChunks=[]; recorder=null; recBtn.textContent='● Record';
+    };
+    recorder.start(); recBtn.textContent='■ Stop';
+  }else{
+    recorder.stop();
+  }
+};
+
+document.getElementById('restart').onclick = resetScene;
+
+// ====== Loop ======
+let last = performance.now();
+function tick(now){
+  const dt = Math.min(0.05, (now-last)/1000); last = now;
+  if (phase!==3) animateReaction(dt);
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script>
 </body>
 </html>
