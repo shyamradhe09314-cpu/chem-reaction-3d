@@ -2,101 +2,130 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Chemical Reaction Demo</title>
+  <title>2H₂ + O₂ → 2H₂O</title>
   <style>
-    body { margin: 0; background: black; color: white; font-family: Arial; }
-    #info { position: absolute; top: 20px; left: 20px; font-size: 22px; font-weight: bold; }
-    canvas { display: block; }
+    body { margin: 0; background: black; overflow: hidden; }
+    #info {
+      position: absolute; top: 10px; left: 10px; 
+      color: white; font-family: Arial; font-size: 18px;
+    }
   </style>
 </head>
 <body>
-  <div id="info">H₂ + O₂ → H₂O (Reaction Demo)</div>
-
-  <!-- Three.js -->
+  <div id="info">2 H₂ + O₂ → 2 H₂O (Reaction Demo)</div>
   <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
-  <!-- GSAP -->
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
   <script>
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({antialias:true});
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const light = new THREE.AmbientLight(0xffffff, 1.2);
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+    // Materials
+    const matH = new THREE.MeshPhongMaterial({ color: 0xffffff }); // Hydrogen white
+    const matO = new THREE.MeshPhongMaterial({ color: 0xff0000 }); // Oxygen red
+    const sphereGeo = new THREE.SphereGeometry(0.3, 32, 32);
+
+    // Molecule groups
+    let H2_1 = new THREE.Group();
+    let H2_2 = new THREE.Group();
+    let O2   = new THREE.Group();
+    let waters = []; // final H2O molecules
+
+    // Add H2 molecule
+    function makeH2(x) {
+      const g = new THREE.Group();
+      const h1 = new THREE.Mesh(sphereGeo, matH);
+      const h2 = new THREE.Mesh(sphereGeo, matH);
+      h1.position.x = -0.4;
+      h2.position.x = 0.4;
+      g.add(h1); g.add(h2);
+      g.position.x = x;
+      scene.add(g);
+      return g;
+    }
+
+    // Add O2 molecule
+    function makeO2(x) {
+      const g = new THREE.Group();
+      const o1 = new THREE.Mesh(sphereGeo, matO);
+      const o2 = new THREE.Mesh(sphereGeo, matO);
+      o1.position.x = -0.4;
+      o2.position.x = 0.4;
+      g.add(o1); g.add(o2);
+      g.position.x = x;
+      scene.add(g);
+      return g;
+    }
+
+    // Water molecule (V-shape ~104.5°)
+    function makeH2O(x, z) {
+      const g = new THREE.Group();
+      const O = new THREE.Mesh(sphereGeo, matO);
+      const H1 = new THREE.Mesh(sphereGeo, matH);
+      const H2 = new THREE.Mesh(sphereGeo, matH);
+
+      O.position.set(0,0,0);
+      const angle = (104.5 * Math.PI/180) / 2;
+      const dist = 0.8;
+
+      H1.position.set(Math.sin(angle)*dist, Math.cos(angle)*dist, 0);
+      H2.position.set(-Math.sin(angle)*dist, Math.cos(angle)*dist, 0);
+
+      g.add(O); g.add(H1); g.add(H2);
+      g.position.set(x, 0, z);
+      scene.add(g);
+      return g;
+    }
+
+    // Lights
+    const light = new THREE.PointLight(0xffffff, 1);
+    light.position.set(10,10,10);
     scene.add(light);
+    scene.add(new THREE.AmbientLight(0x404040));
 
-    // Atom function
-    function createAtom(color, x, y, z) {
-      const geometry = new THREE.SphereGeometry(0.4, 32, 32);
-      const material = new THREE.MeshPhongMaterial({ color: color });
-      const atom = new THREE.Mesh(geometry, material);
-      atom.position.set(x, y, z);
-      scene.add(atom);
-      return atom;
-    }
+    // Initial molecules
+    H2_1 = makeH2(-4);
+    H2_2 = makeH2(-1.5);
+    O2   = makeO2(3);
 
-    // Bond (stick) function
-    function createBond(atom1, atom2) {
-      const start = atom1.position.clone();
-      const end = atom2.position.clone();
-      const distance = start.distanceTo(end);
+    camera.position.z = 10;
 
-      const bondGeometry = new THREE.CylinderGeometry(0.1, 0.1, distance, 16);
-      const bondMaterial = new THREE.MeshPhongMaterial({ color: 0xaaaaaa });
-      const bond = new THREE.Mesh(bondGeometry, bondMaterial);
-
-      // Position bond in middle of two atoms
-      bond.position.copy(start).add(end).divideScalar(2);
-
-      // Align bond with atoms
-      bond.lookAt(end);
-      bond.rotateX(Math.PI / 2);
-
-      scene.add(bond);
-      return bond;
-    }
-
-    // Atoms (initial molecules: H2 and O2)
-    const H1 = createAtom(0xffffff, -3, 0, 0);
-    const H2 = createAtom(0xffffff, -2, 0, 0);
-    const O1 = createAtom(0xff0000, 2, 0, 0);
-    const O2 = createAtom(0xff0000, 3, 0, 0);
-
-    // Bonds (initially H–H and O=O)
-    let bond_H2 = createBond(H1, H2);
-    let bond_O2 = createBond(O1, O2);
-
-    camera.position.z = 7;
-
-    // Animate loop
+    let step = 0;
     function animate() {
       requestAnimationFrame(animate);
+      controls.update();
+
+      if(step < 200){
+        // Move molecules together
+        H2_1.position.x += 0.02;
+        H2_2.position.x += 0.02;
+        O2.position.x   -= 0.02;
+      }
+      else if(step === 200){
+        // Remove reactants
+        scene.remove(H2_1);
+        scene.remove(H2_2);
+        scene.remove(O2);
+
+        // Add 2 H2O molecules
+        waters.push(makeH2O(-1.5,0));
+        waters.push(makeH2O(1.5,0));
+      }
+      step++;
+
       renderer.render(scene, camera);
     }
     animate();
 
-    // Reaction after 3s
-    setTimeout(() => {
-      // Remove old bonds
-      scene.remove(bond_H2);
-      scene.remove(bond_O2);
-
-      // Move atoms to form H2O
-      gsap.to(H1.position, { x: 2, y: 1, duration: 2 });
-      gsap.to(H2.position, { x: 2, y: -1, duration: 2 });
-      gsap.to(O1.position, { x: 2, y: 0, duration: 2 });
-
-      // Hide O2 extra atom
-      gsap.to(O2.position, { x: 100, duration: 2 });
-
-      // After movement, create new H–O bonds
-      setTimeout(() => {
-        bond_HO1 = createBond(H1, O1);
-        bond_HO2 = createBond(H2, O1);
-      }, 2200);
-    }, 3000);
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
   </script>
 </body>
 </html>
