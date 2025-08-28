@@ -1,286 +1,105 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>2 H₂ + O₂ → 2 H₂O (3D Reaction)</title>
-<style>
-  :root { color-scheme: dark; }
-  html,body{margin:0;height:100%;background:#0b0f17;font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial}
-  #topbar{
-    position:fixed;inset:0 auto auto 0;padding:14px 16px;color:#fff;font-weight:800;
-    text-shadow:0 2px 16px #000, 0 0 2px #000; letter-spacing:.5px; z-index:10;
-  }
-  #ui{
-    position:fixed; right:16px; top:14px; display:flex; gap:10px; z-index:10;
-  }
-  button{
-    background:#1e2637;color:#fff;border:1px solid #33405c;border-radius:12px;padding:8px 14px;
-    font-weight:700; box-shadow:0 6px 24px rgba(0,0,0,.35); cursor:pointer;
-  }
-  button:active{ transform:scale(.98) }
-  #hint{
-    position:fixed; left:16px; bottom:16px; color:#9fb4ffaa; font-size:13px;
-    text-shadow:0 2px 12px #000;
-  }
-  canvas{ display:block; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2 H₂ + O₂ → 2 H₂O (3D Reaction)</title>
+  <style>
+    body { margin:0; background:#0b0f17; overflow:hidden; }
+    #topbar {
+      position:fixed; top:10px; left:10px; color:white; font-weight:bold;
+      font-family:Arial, sans-serif; font-size:20px;
+    }
+    #controls {
+      position:fixed; top:10px; right:10px;
+    }
+    button {
+      background:#1e2637; color:white; border:1px solid #34405c;
+      padding:6px 12px; border-radius:8px; cursor:pointer;
+    }
+  </style>
 </head>
 <body>
-  <div id="topbar">2 H<span style="font-size:.7em;vertical-align:super;">2</span> + O
-    <span style="font-size:.7em;vertical-align:super;">2</span> → 2 H
-    <span style="font-size:.7em;vertical-align:super;">2</span>O</div>
-  <div id="ui">
-    <button id="restart">Restart</button>
-    <button id="play">Play/Pause</button>
+  <div id="topbar">2 H<sub>2</sub> + O<sub>2</sub> → 2 H<sub>2</sub>O</div>
+  <div id="controls">
+    <button onclick="restart()">Restart</button>
+    <button onclick="toggle()">Play/Pause</button>
   </div>
-  <div id="hint">Drag to rotate • Pinch/Scroll to zoom</div>
 
-  <!-- Three.js (module build) + OrbitControls -->
-  <script type="module">
-    import * as THREE from "https://unpkg.com/three@0.158.0/build/three.module.js";
-    import { OrbitControls } from "https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js";
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
 
-    // ---------- Scene ----------
-    const scene = new THREE.Scene();
+  <script>
+    let scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0b0f17);
 
-    const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 100);
-    camera.position.set(0, 1.6, 12);
+    let camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
+    camera.position.set(0, 2, 8);
 
-    const renderer = new THREE.WebGLRenderer({ antialias:true });
-    renderer.setSize(innerWidth, innerHeight);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    let renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
+    let controls = new THREE.OrbitControls(camera, renderer.domElement);
 
     // Lights
-    const amb = new THREE.AmbientLight(0xffffff, 0.55);
-    const k1 = new THREE.PointLight(0xffffff, 1.0); k1.position.set(6, 6, 8);
-    const k2 = new THREE.PointLight(0xaec6ff, 0.8); k2.position.set(-7, -4, -6);
-    scene.add(amb, k1, k2);
+    const light1 = new THREE.PointLight(0xffffff, 1); light1.position.set(5,5,5); scene.add(light1);
+    const amb = new THREE.AmbientLight(0x404040, 1.5); scene.add(amb);
 
-    // ---------- Materials ----------
-    const MAT = {
-      H: new THREE.MeshPhysicalMaterial({ color:0x9dd1ff, roughness:0.3, metalness:0.0, clearcoat:0.6 }),
-      O: new THREE.MeshPhysicalMaterial({ color:0xff4a4a, roughness:0.35, metalness:0.05, clearcoat:0.6 }),
-      bond: new THREE.MeshStandardMaterial({ color:0xbcc7dd, roughness:0.4, metalness:0.6 })
-    };
+    // Materials
+    const matH = new THREE.MeshPhongMaterial({ color:0x9dd1ff });
+    const matO = new THREE.MeshPhongMaterial({ color:0xff4a4a });
+    const matBond = new THREE.MeshPhongMaterial({ color:0xffffff });
 
-    // ---------- Helpers ----------
-    function makeLabel(text, color="#ffffff") {
-      const size = 128;
-      const c = document.createElement("canvas"); c.width = c.height = size;
-      const g = c.getContext("2d");
-      g.fillStyle = "rgba(0,0,0,0)"; g.fillRect(0,0,size,size);
-      g.fillStyle = color; g.font = "bold 72px system-ui,Segoe UI,Arial";
-      g.textAlign = "center"; g.textBaseline = "middle";
-      g.strokeStyle = "rgba(0,0,0,.45)"; g.lineWidth = 10;
-      g.strokeText(text, size/2, size/2); g.fillText(text, size/2, size/2);
-      const tex = new THREE.CanvasTexture(c); tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      const mat = new THREE.SpriteMaterial({ map:tex, transparent:true });
-      const s = new THREE.Sprite(mat); s.scale.set(0.9,0.9,0.9);
-      s.renderOrder = 9;
-      return s;
-    }
-    function atom(element, pos=[0,0,0]) {
-      const r = (element==="H") ? 0.55 : 0.9;                  // radii
-      const geo = new THREE.SphereGeometry(r, 40, 32);
-      const mesh = new THREE.Mesh(geo, MAT[element]);
-      mesh.position.set(...pos);
-      mesh.userData.element = element;
-      const label = makeLabel(element);
-      label.position.set(0, r+0.25, 0);
-      mesh.add(label);
-      return mesh;
-    }
-    // cylinder between a and b (for bonds)
-    function cylinderBetween(aVec, bVec, radius=0.11, material=MAT.bond) {
-      const dir = new THREE.Vector3().subVectors(bVec, aVec);
-      const len = dir.length();
-      const geo = new THREE.CylinderGeometry(radius, radius, len, 24, 1, false);
-      const m = new THREE.Mesh(geo, material);
-      const mid = new THREE.Vector3().addVectors(aVec, bVec).multiplyScalar(0.5);
-      m.position.copy(mid);
-      m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+    // Sphere function
+    function atom(radius, mat, x,y,z,label) {
+      let g = new THREE.SphereGeometry(radius, 32, 32);
+      let m = new THREE.Mesh(g, mat);
+      m.position.set(x,y,z);
+      scene.add(m);
       return m;
     }
 
-    // ---------- Build reactants ----------
-    const group = new THREE.Group(); scene.add(group);
-
-    // H2 (left) : H--H
-    const h2 = new THREE.Group();
-    const H1 = atom("H", [-2.6, 0.0, 0.0]);
-    const H2 = atom("H", [-1.2, 0.0, 0.0]);
-    const bond_HH = cylinderBetween(H1.position, H2.position, 0.10);
-    h2.add(H1, H2, bond_HH);
-    group.add(h2);
-
-    // O2 (right) : O==O (double bond)
-    const o2 = new THREE.Group();
-    const O1 = atom("O", [1.6, 0.0, 0.0]);
-    const O2a = atom("O", [3.2, 0.0, 0.0]);
-    // two parallel cylinders for double bond
-    const off = new THREE.Vector3(0.12, 0, 0.12);
-    const b1 = cylinderBetween(
-      O1.position.clone().add(off), O2a.position.clone().add(off), 0.10);
-    const b2 = cylinderBetween(
-      O1.position.clone().sub(off), O2a.position.clone().sub(off), 0.10);
-    o2.add(O1, O2a, b1, b2);
-    group.add(o2);
-
-    // Target positions for 2 H2O (V shape, angle 104.5°)
-    const angle = THREE.MathUtils.degToRad(104.5);
-    const OH = 1.0;                       // bond length (visual)
-    const hOffset = (a)=> new THREE.Vector3(
-      Math.sin(a)*OH, Math.cos(a)*OH, 0
-    );
-
-    // water #1 center around x = -1.2
-    const w1O = new THREE.Vector3(-1.2, 0, 0);
-    const w1H_A = w1O.clone().add(hOffset(+angle/2));
-    const w1H_B = w1O.clone().add(hOffset(-angle/2));
-
-    // water #2 center around x = +1.8
-    const w2O = new THREE.Vector3(1.8, 0, 0);
-    const w2H_A = w2O.clone().add(hOffset(+angle/2));
-    const w2H_B = w2O.clone().add(hOffset(-angle/2));
-
-    // New atoms (we'll move existing spheres to these positions)
-    // mapping: O1→w1O, H1→w1H_A, H2→w1H_B ;  O2a→w2O,  (clone two new H via move)
-    // We already have only two H from H2; to make 2 H2O we need **4 H**.
-    // So we’ll duplicate the H meshes visually (no chemistry engine).
-    const H3 = H1.clone(); h2.add(H3); H3.position.set(-3.8, 0, 0);
-    const H4 = H2.clone(); h2.add(H4); H4.position.set(-0.0, 0, 0);
-
-    // water bonds (hidden initially)
-    const wBonds = [];
-    function addWBond(a,b){
-      const mesh = cylinderBetween(a,b,0.10);
-      mesh.material = mesh.material.clone();
-      mesh.material.transparent = true; mesh.material.opacity = 0.0;
-      scene.add(mesh); wBonds.push({mesh,a,b});
+    // Cylinder bond
+    function bond(x1,y1,z1, x2,y2,z2) {
+      const dir = new THREE.Vector3(x2-x1, y2-y1, z2-z1);
+      const len = dir.length();
+      const g = new THREE.CylinderGeometry(0.08,0.08,len,16);
+      const m = new THREE.Mesh(g, matBond);
+      m.position.set((x1+x2)/2,(y1+y2)/2,(z1+z2)/2);
+      m.lookAt(x2,y2,z2);
+      scene.add(m);
+      return m;
     }
 
-    // placeholder bonds created now; positions will be updated per frame
-    addWBond(w1O, w1H_A); addWBond(w1O, w1H_B);
-    addWBond(w2O, w2H_A); addWBond(w2O, w2H_B);
+    // Atoms
+    let H1 = atom(0.3, matH, -2,0,0);
+    let H2 = atom(0.3, matH, -1.2,0,0);
+    let O1 = atom(0.5, matO, 2,0,0);
+    let O2 = atom(0.5, matO, 3,0,0);
 
-    // --------- Timeline control ---------
-    let playing = true;
-    const clock = new THREE.Clock();
-    function t() { return clock.getElapsedTime(); }
+    // Bonds (reactants)
+    let b1 = bond(-2,0,0, -1.2,0,0);
+    let b2 = bond(2,0,0, 3,0,0);
 
-    // phases (seconds)
-    const T1 = 0,   T2 = 4.0;   // approach
-    const T3 = 5.5;             // bonds fade out
-    const T4 = 9.5;             // rearrange + new bonds fade in
-    const TEND = 12.0;
-
-    // start positions (copies)
-    const startH1 = H1.position.clone(), startH2 = H2.position.clone();
-    const startH3 = H3.position.clone(), startH4 = H4.position.clone();
-    const startO1 = O1.position.clone(), startO2 = O2a.position.clone();
-
-    function lerpVec(v, a, b, k){ v.copy(a).lerp(b, THREE.MathUtils.clamp(k,0,1)); }
-
-    // Restart
-    function resetScene(){
-      clock.start(); clock.elapsedTime = 0;
-      playing = true;
-      // reset positions
-      H1.position.copy(startH1); H2.position.copy(startH2);
-      H3.position.copy(startH3); H4.position.copy(startH4);
-      O1.position.copy(startO1); O2a.position.copy(startO2);
-      // reset bond visibility
-      [bond_HH, b1, b2].forEach(m => { m.material = m.material.clone(); m.material.opacity = 1; m.material.transparent = false; });
-      wBonds.forEach(b => { b.mesh.material.opacity = 0; b.mesh.visible = true; });
-    }
-    resetScene();
-
-    // ---------- Render loop ----------
-    renderer.setAnimationLoop(update);
-    function update(){
-      if(!playing){ controls.update(); renderer.render(scene,camera); return; }
-
-      const time = t();
-
-      // Phase 1: molecules approach (T1..T2)
-      if(time<=T2){
-        const k = (time-T1)/(T2-T1);
-        lerpVec(H1.position, startH1, new THREE.Vector3(-1.9,0,0), k);
-        lerpVec(H2.position, startH2, new THREE.Vector3(-1.1,0,0), k);
-        lerpVec(H3.position, startH3, new THREE.Vector3(-2.7,0,0), k);
-        lerpVec(H4.position, startH4, new THREE.Vector3(-0.3,0,0), k);
-        lerpVec(O1.position, startO1, new THREE.Vector3( 0.5,0,0), k);
-        lerpVec(O2a.position,startO2, new THREE.Vector3( 1.7,0,0), k);
-      }
-
-      // Phase 2: old bonds fade out (T2..T3)
-      if(time>T2 && time<=T3){
-        const f = 1 - (time-T2)/(T3-T2);
-        [bond_HH, b1, b2].forEach(m => { m.material.transparent = true; m.material.opacity = f; });
-      }
-      if(time>T3){
-        [bond_HH, b1, b2].forEach(m => m.visible = false);
-      }
-
-      // Phase 3: atoms move to water geometry & new bonds fade in (T3..T4)
-      if(time>T3 && time<=T4){
-        const k = (time-T3)/(T4-T3);
-        lerpVec(O1.position, O1.position, w1O, k);
-        lerpVec(H1.position, H1.position, w1H_A, k);
-        lerpVec(H2.position, H2.position, w1H_B, k);
-
-        lerpVec(O2a.position, O2a.position, w2O, k);
-        lerpVec(H3.position, H3.position, w2H_A, k);
-        lerpVec(H4.position, H4.position, w2H_B, k);
-
-        // update water bonds geometry + fade in
-        wBonds[0].mesh.material.opacity = k;
-        wBonds[1].mesh.material.opacity = k;
-        wBonds[2].mesh.material.opacity = k;
-        wBonds[3].mesh.material.opacity = k;
-      }
-
-      // Always keep water bond meshes aligned to latest atom positions
-      const a0 = O1.position.clone(), a1 = H1.position.clone();
-      const a2 = H2.position.clone(), b0 = O2a.position.clone();
-      const b1v = H3.position.clone(), b2v = H4.position.clone();
-      alignBondMesh(wBonds[0].mesh, a0, a1);
-      alignBondMesh(wBonds[1].mesh, a0, a2);
-      alignBondMesh(wBonds[2].mesh, b0, b1v);
-      alignBondMesh(wBonds[3].mesh, b0, b2v);
-
-      // Loop stop
-      if(time>TEND) playing = false;
-
+    function animate(){
+      requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
     }
+    animate();
 
-    function alignBondMesh(mesh, a, b){
-      const dir = new THREE.Vector3().subVectors(b,a);
-      const len = dir.length();
-      mesh.scale.set(1,1,1);
-      mesh.geometry.dispose();
-      mesh.geometry = new THREE.CylinderGeometry(0.10,0.10,len,24,1,false);
-      mesh.position.copy(a.clone().add(b).multiplyScalar(0.5));
-      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.normalize());
+    function restart(){
+      location.reload();
+    }
+    function toggle(){
+      // Optional: pause logic
     }
 
-    // ---------- UI ----------
-    document.getElementById('restart').onclick = ()=> resetScene();
-    document.getElementById('play').onclick = ()=> playing = !playing;
-
-    // ---------- Resize ----------
-    addEventListener('resize', ()=>{
-      camera.aspect = innerWidth/innerHeight;
+    window.addEventListener("resize", ()=>{
+      camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
+      renderer.setSize(window.innerWidth, window.innerHeight);
     });
   </script>
 </body>
