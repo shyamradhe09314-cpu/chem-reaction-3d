@@ -1,250 +1,287 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>2 H₂ + O₂ → 2 H₂O (3D CSS Demo)</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>2 H₂ + O₂ → 2 H₂O (3D Reaction)</title>
 <style>
-  :root{
-    --bg:#0b0f1a;
-    --txt:#e8f0ff;
-    --h:#6be3ff;
-    --o:#ff5a5a;
-    --bond:#bfc6d1;
+  :root { color-scheme: dark; }
+  html,body{margin:0;height:100%;background:#0b0f17;font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial}
+  #topbar{
+    position:fixed;inset:0 auto auto 0;padding:14px 16px;color:#fff;font-weight:800;
+    text-shadow:0 2px 16px #000, 0 0 2px #000; letter-spacing:.5px; z-index:10;
   }
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,Segoe UI,Arial,sans-serif;}
-  #hud{position:fixed;inset:12px auto auto 12px;display:flex;gap:10px;align-items:center;font-weight:700}
-  #hud small{font-weight:500;opacity:.8}
-  #controls{position:fixed;top:12px;right:12px;display:flex;gap:8px}
-  button{background:#1c2438;color:var(--txt);border:1px solid #2b3552;border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer}
-  button:hover{filter:brightness(1.1)}
-  #stage{position:absolute;inset:0;display:grid;place-items:center;perspective:900px;touch-action:none}
-  .scene{position:relative;width:min(92vw,900px);height:min(70vh,560px);transform-style:preserve-3d}
-  .hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);opacity:.7;font-size:12px}
-  /* Atom */
-  .atom{position:absolute;width:56px;height:56px;border-radius:50%;transform-style:preserve-3d;display:grid;place-items:center}
-  .atom.H{width:38px;height:38px;background:radial-gradient(circle at 35% 30%, #ffffff, #a0d8ff 60%, #3aa3ff 100%);box-shadow:0 0 18px #3aa3ff55}
-  .atom.O{width:64px;height:64px;background:radial-gradient(circle at 35% 30%, #ffd0d0, #ff6b6b 60%, #d11f1f 100%);box-shadow:0 0 18px #ff4d4d66}
-  .label{position:absolute;top:100%;left:50%;transform:translate(-50%,6px);font-size:12px;background:#1b2236;padding:2px 6px;border:1px solid #2b3552;border-radius:6px;white-space:nowrap;pointer-events:none}
-  /* Bond (simple rectangular rod) */
-  .bond{position:absolute;width:6px;height:100px;background:linear-gradient(#e6edf7,#a5b0c2);transform-origin:50% 50%;border-radius:4px;box-shadow:0 0 8px #ffffff29 inset, 0 0 5px #9fb0ca33}
-  .bond.double::before{content:"";position:absolute;inset:-12px 0 0 0;left:-10px;width:6px;height:100%;background:linear-gradient(#e6edf7,#a5b0c2);border-radius:4px}
-  /* Plus signs & arrow */
-  .plus, .arrow{position:absolute;color:#9fb0ca;font-weight:900;font-size:34px;opacity:.9;transform:translateZ(1px)}
-  .arrow{font-size:30px}
+  #ui{
+    position:fixed; right:16px; top:14px; display:flex; gap:10px; z-index:10;
+  }
+  button{
+    background:#1e2637;color:#fff;border:1px solid #33405c;border-radius:12px;padding:8px 14px;
+    font-weight:700; box-shadow:0 6px 24px rgba(0,0,0,.35); cursor:pointer;
+  }
+  button:active{ transform:scale(.98) }
+  #hint{
+    position:fixed; left:16px; bottom:16px; color:#9fb4ffaa; font-size:13px;
+    text-shadow:0 2px 12px #000;
+  }
+  canvas{ display:block; }
 </style>
 </head>
 <body>
-  <div id="hud">2 H<sub>2</sub> + O<sub>2</sub> → 2 H<sub>2</sub>O <small id="phase">• Reactants</small></div>
-  <div id="controls">
+  <div id="topbar">2 H<span style="font-size:.7em;vertical-align:super;">2</span> + O
+    <span style="font-size:.7em;vertical-align:super;">2</span> → 2 H
+    <span style="font-size:.7em;vertical-align:super;">2</span>O</div>
+  <div id="ui">
     <button id="restart">Restart</button>
-    <button id="toggle">Play/Pause</button>
+    <button id="play">Play/Pause</button>
   </div>
-  <div id="stage">
-    <div class="scene" id="scene">
-      <div class="hint">Drag to rotate • Pinch/Scroll to zoom</div>
-      <!-- Plus signs / arrow -->
-      <div class="plus" id="plus1">+</div>
-      <div class="arrow" id="arrow">→</div>
-      <!-- Reactant molecules -->
-      <div class="atom H" id="H1"><div class="label">H</div></div>
-      <div class="atom H" id="H2"><div class="label">H</div></div>
-      <div class="atom H" id="H3"><div class="label">H</div></div>
-      <div class="atom H" id="H4"><div class="label">H</div></div>
-      <div class="atom O" id="O1"><div class="label">O</div></div>
-      <div class="atom O" id="O2"><div class="label">O</div></div>
-      <!-- Bonds (reactants) -->
-      <div class="bond" id="B_H12"></div>
-      <div class="bond" id="B_H34"></div>
-      <div class="bond double" id="B_O12"></div>
+  <div id="hint">Drag to rotate • Pinch/Scroll to zoom</div>
 
-      <!-- Product molecules (initially hidden/off to side) -->
-      <div class="atom O" id="PO1"><div class="label">O</div></div>
-      <div class="atom H" id="PH1"><div class="label">H</div></div>
-      <div class="atom H" id="PH2"><div class="label">H</div></div>
-      <div class="atom O" id="PO2"><div class="label">O</div></div>
-      <div class="atom H" id="PH3"><div class="label">H</div></div>
-      <div class="atom H" id="PH4"><div class="label">H</div></div>
-      <div class="bond" id="B_P1_OH1"></div>
-      <div class="bond" id="B_P1_OH2"></div>
-      <div class="bond" id="B_P2_OH3"></div>
-      <div class="bond" id="B_P2_OH4"></div>
-    </div>
-  </div>
+  <!-- Three.js (module build) + OrbitControls -->
+  <script type="module">
+    import * as THREE from "https://unpkg.com/three@0.158.0/build/three.module.js";
+    import { OrbitControls } from "https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js";
 
-<script>
-/* ---------- tiny 3D helper using CSS transforms ---------- */
-const scene = document.getElementById('scene');
-let rotX = -8, rotY = -20, zoom = 1;
-function applySceneTransform(){ scene.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${zoom})`; }
-applySceneTransform();
+    // ---------- Scene ----------
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b0f17);
 
-// pointer rotate
-let dragging=false, lx=0, ly=0;
-scene.addEventListener('pointerdown', e=>{dragging=true; lx=e.clientX; ly=e.clientY; scene.setPointerCapture(e.pointerId);});
-scene.addEventListener('pointerup',   e=>{dragging=false; scene.releasePointerCapture(e.pointerId);});
-scene.addEventListener('pointermove', e=>{ if(!dragging) return; rotY += (e.clientX-lx)*0.2; rotX -= (e.clientY-ly)*0.2; lx=e.clientX; ly=e.clientY; applySceneTransform(); });
-scene.addEventListener('wheel', e=>{ e.preventDefault(); const s = (e.deltaY>0)?0.92:1.08; zoom = Math.min(2.2, Math.max(0.6, zoom*s)); applySceneTransform(); }, {passive:false});
+    const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 100);
+    camera.position.set(0, 1.6, 12);
 
-// position helper
-function place(el, x,y,z){ el.style.transform = `translate3d(${x}px, ${y}px, ${z}px)`; }
-function placeBond(bondEl, ax,ay,az, bx,by,bz){
-  const dx=bx-ax, dy=by-ay, dz=bz-az;
-  const len = Math.sqrt(dx*dx+dy*dy*1 + dz*dz);
-  const cx = (ax+bx)/2, cy=(ay+by)/2, cz=(az+bz)/2;
-  const yaw   = Math.atan2(dx, dz) * 180/Math.PI;     // rotateY
-  const pitch = Math.atan2(dy, Math.hypot(dx,dz)) * 180/Math.PI; // rotateX
-  bondEl.style.height = `${len}px`;
-  bondEl.style.transformOrigin = '50% 50%';
-  bondEl.style.transform = `translate3d(${cx}px, ${cy}px, ${cz}px) rotateY(${yaw}deg) rotateX(${-pitch}deg)`;
-}
+    const renderer = new THREE.WebGLRenderer({ antialias:true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    document.body.appendChild(renderer.domElement);
 
-// units scale
-const U=70; // pixels per unit
-// initial reactant positions (left: two H2; right: O2)
-const pos = {
-  H1:[-4*U, -0.7*U,  0], H2:[-3*U, -0.7*U,  0],
-  H3:[-4*U,  0.7*U,  0], H4:[-3*U,  0.7*U,  0],
-  O1:[ 3.2*U,  0.0,  0], O2:[ 4.4*U,  0.0,  0],
-};
-// product positions: two bent H2O molecules
-const prod = {
-  // water #1 at left center
-  PO1:[-1.0*U, 0, 0],
-  PH1:[-1.65*U,  0.6*U,  0.3*U],
-  PH2:[-1.65*U, -0.6*U, -0.3*U],
-  // water #2 at right center
-  PO2:[ 1.6*U, 0, 0],
-  PH3:[ 2.25*U,  0.6*U, -0.3*U],
-  PH4:[ 2.25*U, -0.6*U,  0.3*U],
-};
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
 
-// element refs
-const el = id => document.getElementById(id);
-const H1=el('H1'), H2=el('H2'), H3=el('H3'), H4=el('H4'), O1=el('O1'), O2=el('O2');
-const B_H12=el('B_H12'), B_H34=el('B_H34'), B_O12=el('B_O12');
-const PO1=el('PO1'), PH1=el('PH1'), PH2=el('PH2'), PO2=el('PO2'), PH3=el('PH3'), PH4=el('PH4');
-const B_P1_OH1=el('B_P1_OH1'), B_P1_OH2=el('B_P1_OH2'), B_P2_OH3=el('B_P2_OH3'), B_P2_OH4=el('B_P2_OH4');
-const plus1=el('plus1'), arrow=el('arrow');
-const phaseTxt=document.getElementById('phase');
+    // Lights
+    const amb = new THREE.AmbientLight(0xffffff, 0.55);
+    const k1 = new THREE.PointLight(0xffffff, 1.0); k1.position.set(6, 6, 8);
+    const k2 = new THREE.PointLight(0xaec6ff, 0.8); k2.position.set(-7, -4, -6);
+    scene.add(amb, k1, k2);
 
-// set initial
-function initReactants(){
-  place(H1, ...pos.H1); place(H2, ...pos.H2);
-  place(H3, ...pos.H3); place(H4, ...pos.H4);
-  place(O1, ...pos.O1); place(O2, ...pos.O2);
-  placeBond(B_H12, ...pos.H1, ...pos.H2);
-  placeBond(B_H34, ...pos.H3, ...pos.H4);
-  placeBond(B_O12, ...pos.O1, ...pos.O2);
+    // ---------- Materials ----------
+    const MAT = {
+      H: new THREE.MeshPhysicalMaterial({ color:0x9dd1ff, roughness:0.3, metalness:0.0, clearcoat:0.6 }),
+      O: new THREE.MeshPhysicalMaterial({ color:0xff4a4a, roughness:0.35, metalness:0.05, clearcoat:0.6 }),
+      bond: new THREE.MeshStandardMaterial({ color:0xbcc7dd, roughness:0.4, metalness:0.6 })
+    };
 
-  // products off-screen
-  place(PO1, -2000, 0, 0); place(PH1, -2000,0,0); place(PH2, -2000,0,0);
-  place(PO2,  2000, 0, 0); place(PH3, 2000,0,0);  place(PH4, 2000,0,0);
+    // ---------- Helpers ----------
+    function makeLabel(text, color="#ffffff") {
+      const size = 128;
+      const c = document.createElement("canvas"); c.width = c.height = size;
+      const g = c.getContext("2d");
+      g.fillStyle = "rgba(0,0,0,0)"; g.fillRect(0,0,size,size);
+      g.fillStyle = color; g.font = "bold 72px system-ui,Segoe UI,Arial";
+      g.textAlign = "center"; g.textBaseline = "middle";
+      g.strokeStyle = "rgba(0,0,0,.45)"; g.lineWidth = 10;
+      g.strokeText(text, size/2, size/2); g.fillText(text, size/2, size/2);
+      const tex = new THREE.CanvasTexture(c); tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      const mat = new THREE.SpriteMaterial({ map:tex, transparent:true });
+      const s = new THREE.Sprite(mat); s.scale.set(0.9,0.9,0.9);
+      s.renderOrder = 9;
+      return s;
+    }
+    function atom(element, pos=[0,0,0]) {
+      const r = (element==="H") ? 0.55 : 0.9;                  // radii
+      const geo = new THREE.SphereGeometry(r, 40, 32);
+      const mesh = new THREE.Mesh(geo, MAT[element]);
+      mesh.position.set(...pos);
+      mesh.userData.element = element;
+      const label = makeLabel(element);
+      label.position.set(0, r+0.25, 0);
+      mesh.add(label);
+      return mesh;
+    }
+    // cylinder between a and b (for bonds)
+    function cylinderBetween(aVec, bVec, radius=0.11, material=MAT.bond) {
+      const dir = new THREE.Vector3().subVectors(bVec, aVec);
+      const len = dir.length();
+      const geo = new THREE.CylinderGeometry(radius, radius, len, 24, 1, false);
+      const m = new THREE.Mesh(geo, material);
+      const mid = new THREE.Vector3().addVectors(aVec, bVec).multiplyScalar(0.5);
+      m.position.copy(mid);
+      m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+      return m;
+    }
 
-  // plus and arrow positions
-  place(plus1, -0.3*U, -1.5*U, 0);
-  place(arrow,  0.8*U, -1.5*U, 0);
-}
-initReactants();
+    // ---------- Build reactants ----------
+    const group = new THREE.Group(); scene.add(group);
 
-// simple tween
-function tween(from, to, dur, onUpdate, onDone){
-  const start = performance.now();
-  function frame(now){
-    const t = Math.min(1, (now-start)/dur);
-    const u = t<.5 ? 2*t*t : -1+(4-2*t)*t; // easeInOutQuad
-    onUpdate(from + (to-from)*u, t);
-    if(t<1) requestAnimationFrame(frame); else onDone&&onDone();
-  }
-  requestAnimationFrame(frame);
-}
+    // H2 (left) : H--H
+    const h2 = new THREE.Group();
+    const H1 = atom("H", [-2.6, 0.0, 0.0]);
+    const H2 = atom("H", [-1.2, 0.0, 0.0]);
+    const bond_HH = cylinderBetween(H1.position, H2.position, 0.10);
+    h2.add(H1, H2, bond_HH);
+    group.add(h2);
 
-// animate molecules moving, bonds breaking/forming
-let playing=true, schedule=null;
-function play(){
-  if(schedule){ return; }
-  schedule = [];
-  phaseTxt.textContent = '• Reactants approaching';
+    // O2 (right) : O==O (double bond)
+    const o2 = new THREE.Group();
+    const O1 = atom("O", [1.6, 0.0, 0.0]);
+    const O2a = atom("O", [3.2, 0.0, 0.0]);
+    // two parallel cylinders for double bond
+    const off = new THREE.Vector3(0.12, 0, 0.12);
+    const b1 = cylinderBetween(
+      O1.position.clone().add(off), O2a.position.clone().add(off), 0.10);
+    const b2 = cylinderBetween(
+      O1.position.clone().sub(off), O2a.position.clone().sub(off), 0.10);
+    o2.add(O1, O2a, b1, b2);
+    group.add(o2);
 
-  // move left H2 to center-left, right O2 to center, other H2 to center-right
-  const targets = {
-    H1:[-2.2*U,-0.7*U,0], H2:[-1.2*U,-0.7*U,0],
-    H3:[ 2.2*U, 0.7*U,0], H4:[ 3.2*U, 0.7*U,0],
-    O1:[ 0.4*U, 0,0], O2:[ 1.6*U,0,0]
-  };
+    // Target positions for 2 H2O (V shape, angle 104.5°)
+    const angle = THREE.MathUtils.degToRad(104.5);
+    const OH = 1.0;                       // bond length (visual)
+    const hOffset = (a)=> new THREE.Vector3(
+      Math.sin(a)*OH, Math.cos(a)*OH, 0
+    );
 
-  // 1) approach (2.2s)
-  let coords = { ...pos };
-  const keys = Object.keys(targets);
-  tween(0,1,2200,(v)=>{
-    keys.forEach(k=>{
-      const s = coords[k] || pos[k];
-      const t = targets[k];
-      const x = s[0] + (t[0]-s[0])*v;
-      const y = s[1] + (t[1]-s[1])*v;
-      const z = s[2] + (t[2]-s[2])*v;
-      if(k.startsWith('H')) place(eval(k), x,y,z);
-      else if(k.startsWith('O')) place(eval(k), x,y,z);
+    // water #1 center around x = -1.2
+    const w1O = new THREE.Vector3(-1.2, 0, 0);
+    const w1H_A = w1O.clone().add(hOffset(+angle/2));
+    const w1H_B = w1O.clone().add(hOffset(-angle/2));
+
+    // water #2 center around x = +1.8
+    const w2O = new THREE.Vector3(1.8, 0, 0);
+    const w2H_A = w2O.clone().add(hOffset(+angle/2));
+    const w2H_B = w2O.clone().add(hOffset(-angle/2));
+
+    // New atoms (we'll move existing spheres to these positions)
+    // mapping: O1→w1O, H1→w1H_A, H2→w1H_B ;  O2a→w2O,  (clone two new H via move)
+    // We already have only two H from H2; to make 2 H2O we need **4 H**.
+    // So we’ll duplicate the H meshes visually (no chemistry engine).
+    const H3 = H1.clone(); h2.add(H3); H3.position.set(-3.8, 0, 0);
+    const H4 = H2.clone(); h2.add(H4); H4.position.set(-0.0, 0, 0);
+
+    // water bonds (hidden initially)
+    const wBonds = [];
+    function addWBond(a,b){
+      const mesh = cylinderBetween(a,b,0.10);
+      mesh.material = mesh.material.clone();
+      mesh.material.transparent = true; mesh.material.opacity = 0.0;
+      scene.add(mesh); wBonds.push({mesh,a,b});
+    }
+
+    // placeholder bonds created now; positions will be updated per frame
+    addWBond(w1O, w1H_A); addWBond(w1O, w1H_B);
+    addWBond(w2O, w2H_A); addWBond(w2O, w2H_B);
+
+    // --------- Timeline control ---------
+    let playing = true;
+    const clock = new THREE.Clock();
+    function t() { return clock.getElapsedTime(); }
+
+    // phases (seconds)
+    const T1 = 0,   T2 = 4.0;   // approach
+    const T3 = 5.5;             // bonds fade out
+    const T4 = 9.5;             // rearrange + new bonds fade in
+    const TEND = 12.0;
+
+    // start positions (copies)
+    const startH1 = H1.position.clone(), startH2 = H2.position.clone();
+    const startH3 = H3.position.clone(), startH4 = H4.position.clone();
+    const startO1 = O1.position.clone(), startO2 = O2a.position.clone();
+
+    function lerpVec(v, a, b, k){ v.copy(a).lerp(b, THREE.MathUtils.clamp(k,0,1)); }
+
+    // Restart
+    function resetScene(){
+      clock.start(); clock.elapsedTime = 0;
+      playing = true;
+      // reset positions
+      H1.position.copy(startH1); H2.position.copy(startH2);
+      H3.position.copy(startH3); H4.position.copy(startH4);
+      O1.position.copy(startO1); O2a.position.copy(startO2);
+      // reset bond visibility
+      [bond_HH, b1, b2].forEach(m => { m.material = m.material.clone(); m.material.opacity = 1; m.material.transparent = false; });
+      wBonds.forEach(b => { b.mesh.material.opacity = 0; b.mesh.visible = true; });
+    }
+    resetScene();
+
+    // ---------- Render loop ----------
+    renderer.setAnimationLoop(update);
+    function update(){
+      if(!playing){ controls.update(); renderer.render(scene,camera); return; }
+
+      const time = t();
+
+      // Phase 1: molecules approach (T1..T2)
+      if(time<=T2){
+        const k = (time-T1)/(T2-T1);
+        lerpVec(H1.position, startH1, new THREE.Vector3(-1.9,0,0), k);
+        lerpVec(H2.position, startH2, new THREE.Vector3(-1.1,0,0), k);
+        lerpVec(H3.position, startH3, new THREE.Vector3(-2.7,0,0), k);
+        lerpVec(H4.position, startH4, new THREE.Vector3(-0.3,0,0), k);
+        lerpVec(O1.position, startO1, new THREE.Vector3( 0.5,0,0), k);
+        lerpVec(O2a.position,startO2, new THREE.Vector3( 1.7,0,0), k);
+      }
+
+      // Phase 2: old bonds fade out (T2..T3)
+      if(time>T2 && time<=T3){
+        const f = 1 - (time-T2)/(T3-T2);
+        [bond_HH, b1, b2].forEach(m => { m.material.transparent = true; m.material.opacity = f; });
+      }
+      if(time>T3){
+        [bond_HH, b1, b2].forEach(m => m.visible = false);
+      }
+
+      // Phase 3: atoms move to water geometry & new bonds fade in (T3..T4)
+      if(time>T3 && time<=T4){
+        const k = (time-T3)/(T4-T3);
+        lerpVec(O1.position, O1.position, w1O, k);
+        lerpVec(H1.position, H1.position, w1H_A, k);
+        lerpVec(H2.position, H2.position, w1H_B, k);
+
+        lerpVec(O2a.position, O2a.position, w2O, k);
+        lerpVec(H3.position, H3.position, w2H_A, k);
+        lerpVec(H4.position, H4.position, w2H_B, k);
+
+        // update water bonds geometry + fade in
+        wBonds[0].mesh.material.opacity = k;
+        wBonds[1].mesh.material.opacity = k;
+        wBonds[2].mesh.material.opacity = k;
+        wBonds[3].mesh.material.opacity = k;
+      }
+
+      // Always keep water bond meshes aligned to latest atom positions
+      const a0 = O1.position.clone(), a1 = H1.position.clone();
+      const a2 = H2.position.clone(), b0 = O2a.position.clone();
+      const b1v = H3.position.clone(), b2v = H4.position.clone();
+      alignBondMesh(wBonds[0].mesh, a0, a1);
+      alignBondMesh(wBonds[1].mesh, a0, a2);
+      alignBondMesh(wBonds[2].mesh, b0, b1v);
+      alignBondMesh(wBonds[3].mesh, b0, b2v);
+
+      // Loop stop
+      if(time>TEND) playing = false;
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    function alignBondMesh(mesh, a, b){
+      const dir = new THREE.Vector3().subVectors(b,a);
+      const len = dir.length();
+      mesh.scale.set(1,1,1);
+      mesh.geometry.dispose();
+      mesh.geometry = new THREE.CylinderGeometry(0.10,0.10,len,24,1,false);
+      mesh.position.copy(a.clone().add(b).multiplyScalar(0.5));
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.normalize());
+    }
+
+    // ---------- UI ----------
+    document.getElementById('restart').onclick = ()=> resetScene();
+    document.getElementById('play').onclick = ()=> playing = !playing;
+
+    // ---------- Resize ----------
+    addEventListener('resize', ()=>{
+      camera.aspect = innerWidth/innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
     });
-    placeBond(B_H12, H1.offsetLeft, H1.offsetTop,0, H2.offsetLeft, H2.offsetTop,0);
-    placeBond(B_H34, H3.offsetLeft, H3.offsetTop,0, H4.offsetLeft, H4.offsetTop,0);
-    placeBond(B_O12, O1.offsetLeft, O1.offsetTop,0, O2.offsetLeft, O2.offsetTop,0);
-  },()=>{
-    // 2) break bonds (0.8s fade)
-    phaseTxt.textContent='• Bonds breaking';
-    [B_H12,B_H34,B_O12].forEach(b=>b.style.transition='opacity .8s', b=>b.style.opacity=.15);
-    setTimeout(()=>{
-      [B_H12,B_H34,B_O12].forEach(b=>b.style.display='none');
-      // 3) form products
-      phaseTxt.textContent='• Forming 2 H₂O';
-      // move atoms into product positions (2.2s)
-      const map = [[PO1,O1],[PH1,H1],[PH2,H2],[PO2,O2],[PH3,H3],[PH4,H4]];
-      const startPos = map.map(([P,A])=>[A.offsetLeft,A.offsetTop,0]);
-      const endPos   = [prod.PO1,prod.PH1,prod.PH2,prod.PO2,prod.PH3,prod.PH4];
-      // show product atoms
-      [PO1,PH1,PH2,PO2,PH3,PH4].forEach(a=>a.style.display='block');
-      tween(0,1,2200,(v)=>{
-        map.forEach((pair,i)=>{
-          const [P,A]=pair;
-          const s=startPos[i], e=endPos[i];
-          const x=s[0]+(e[0]-s[0])*v;
-          const y=s[1]+(e[1]-s[1])*v;
-          const z=s[2]+(e[2]-s[2])*v;
-          place(P, x,y,z);
-        });
-        // also move original atoms to follow (hide them)
-        [H1,H2,H3,H4,O1,O2].forEach(a=>a.style.opacity=1-v);
-        // update product bonds
-        placeBond(B_P1_OH1, ...prod.PO1, ...prod.PH1);
-        placeBond(B_P1_OH2, ...prod.PO1, ...prod.PH2);
-        placeBond(B_P2_OH3, ...prod.PO2, ...prod.PH3);
-        placeBond(B_P2_OH4, ...prod.PO2, ...prod.PH4);
-      },()=>{
-        [H1,H2,H3,H4,O1,O2].forEach(a=>a.style.display='none');
-        phaseTxt.textContent='• Products (2 × H₂O)';
-      });
-    },800);
-  });
-}
-play();
-
-document.getElementById('restart').onclick=()=>{
-  // reset styles
-  [H1,H2,H3,H4,O1,O2,PO1,PH1,PH2,PO2,PH3,PH4,
-   B_H12,B_H34,B_O12,B_P1_OH1,B_P1_OH2,B_P2_OH3,B_P2_OH4]
-  .forEach(e=>{ e.style.opacity=''; e.style.display=''; e.style.transition=''; });
-  initReactants(); phaseTxt.textContent='• Reactants'; play();
-};
-
-document.getElementById('toggle').onclick=()=>{
-  alert('Play/Pause basic है इस demo में. Replay के लिए Restart दबाएँ.');
-};
-
-// initial placement of product bonds
-placeBond(B_P1_OH1, ...prod.PO1, ...prod.PH1);
-placeBond(B_P1_OH2, ...prod.PO1, ...prod.PH2);
-placeBond(B_P2_OH3, ...prod.PO2, ...prod.PH3);
-placeBond(B_P2_OH4, ...prod.PO2, ...prod.PH4);
-</script>
+  </script>
 </body>
 </html>
